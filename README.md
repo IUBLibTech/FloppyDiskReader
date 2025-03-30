@@ -77,6 +77,8 @@ These are parts/sources from early 2025 and may vary as time moves forward...
 	
   https://www.amazon.com/Bemaka-Assortment-Motherboard-Standoffs-Installation/dp/B0CZDNZGR9 $10
 
+  The storage enclosure specified above contains the necessary screws
+
 	
 ### 3d Printed Parts
 
@@ -108,6 +110,11 @@ There are some things that are either very hard to find or are custom to this pr
 The above assumes we have floppy drives sitting around.  However, if we want to get "new" drives
 * 5.25" Floppy Drive	TEAC FD-55GFR	$50 - $120
 * 3.5" Floppy Drive	TEAC FD-235HF  (new old stock)	$40 - $60
+
+
+## Assembly
+
+
 
 
 ## License
