@@ -1,0 +1,38 @@
+---
+greaseweazle:
+  # either the device name for the greaseweazle or 'auto' to just use the default
+  port: auto
+  drives:
+    # valid drives: A, B, 0, 1, 2
+    # NOTE:  use A,B if you're using PC-style cabling, and 0-2 for Shugart
+    # valid types: none, 3.5HD, 3.5DD, 5.25HD, 5.25DD
+    a: 3.5HD
+    b: 5.25HD
+
+formats:
+  5.25DD: &525DD
+    - commodore.1541
+    - commodore.1571
+    - coco.decb
+    - coco.decb.40t
+    - coco.os9.40ds
+    - coco.os9.40ss
+    - ibm.160
+    - ibm.180
+    - ibm.320
+    - ibm.360
+  5.25HD:
+    - *525DD     
+    - ibm.1200
+  3.5DD: &35DD
+    - amiga.amigados
+    - commodore.1581
+    - ibm.720
+    - ibm.800
+    - mac.400
+    - mac.800
+  3.5HD:
+    - *35DD
+    - ibm.1440
+    - ibm.1680
+  
