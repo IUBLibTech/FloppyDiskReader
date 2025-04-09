@@ -13,10 +13,6 @@ formats:
   5.25DD: &525DD
     - commodore.1541
     - commodore.1571
-    - coco.decb
-    - coco.decb.40t
-    - coco.os9.40ds
-    - coco.os9.40ss
     - ibm.160
     - ibm.180
     - ibm.320
