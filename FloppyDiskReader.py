@@ -11,19 +11,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 
-# TODO:
-
 floppy: FloppyReader = None
-
-@dataclass
-class AppState:
-    drive: str = None
-    disk_format: str = None
-    tracks: int = -1
-    heads: int = -1
-
-state: AppState = AppState()
-
 
 def main():
     global floppy
@@ -45,7 +33,6 @@ def main():
 
         try:
             floppy = FloppyReader(args.config)    
-            state.drive = list(floppy.drives.keys())[0]
         except Exception as e:
             x = QMessageBox(QMessageBox.Icon.Critical, "Greaseweazle Error", f"Cannot connect to the greaseweazle:\n'{e}'")
             x.setModal(True)        
@@ -60,7 +47,6 @@ def main():
     except Exception as e:
         logging.exception(e)
         exit(2)
-
 
 
 class MainWindow(QWidget):
@@ -91,7 +77,6 @@ class MainWindow(QWidget):
         probe = QPushButton("Probe")
         def do_probe():
             probewindow = ProbeWindow(self.pdisk.currentData())
-
             probewindow.show()
             probewindow.probe()
             probewindow.exec()
@@ -99,7 +84,6 @@ class MainWindow(QWidget):
             if res == QMessageBox.StandardButton.Ok:
                 fmt = probewindow.format_name
                 self.format.setCurrentIndex(self.format.findText(fmt))
-            
         probe.pressed.connect(do_probe)
         layout.addWidget(probe, 1, 2)
         
@@ -124,7 +108,17 @@ class MainWindow(QWidget):
 
         gbox.setLayout(glayout)
         layout.addWidget(gbox, 2, 0, 1, -1)
-        layout.addWidget(QPushButton("Start"), 3, 0)
+
+        read = QPushButton("Start")
+        def do_read():
+            probewindow = ProcessWindow(self.pdisk.currentData(), 
+                                        self.format.currentText(), self.format.currentData(),
+                                        self.tracks.value(), self.heads.value())
+            probewindow.show()
+            probewindow.read()
+            probewindow.exec()
+        read.pressed.connect(do_read)
+        layout.addWidget(read, 3, 0)
 
         rpm = QPushButton("RPM")
         def check_rpm():
@@ -213,7 +207,7 @@ class ProbeWindow(QDialog):
         return self.result_value
 
 
-class ProcessWindow(QWidget):
+class ProcessWindow(QDialog):
     def __init__(self, drive: str, format_name: str, format: codec.DiskDef, tracks: int, heads: int):
         super().__init__()
         self.setWindowTitle("Reading Disk")
@@ -222,8 +216,44 @@ class ProcessWindow(QWidget):
         self.format = format
         self.tracks = tracks
         self.heads = heads
-
         logging.info(f"{drive}, {format_name}, {format}, {tracks}, {heads}")
+
+        layout = QGridLayout()
+        self.results = QTableWidget(rowCount=160,
+                                    columnCount=5)
+        self.results.setHorizontalHeaderLabels(['Head', 'Track', 'Message', 'Dat', 'Flux'])     
+        self.results.setColumnWidth(0, 2)
+        self.results.setColumnWidth(1, 2)
+        self.results.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        layout.addWidget(self.results, 0, 0, 1, -1)
+
+        """
+        {'message': 'successfully read track',
+                                    'head': head,
+                                    'logical_cylinder': cyl,
+                                    'physical_cylinder': pcyl,
+                                    'flux': flux.summary_string(),
+                                    'dat': dat.summary_string(),
+                                    'progress': current / total})    
+        """
+        self.progress = QProgressBar(maximum=1)
+        layout.addWidget(self.progress, 1, 0, 1, 3)
+
+        close = QPushButton("Close")
+        close.pressed.connect(self.close)
+        layout.addWidget(close, 1, 3)
+
+        self.setLayout(layout)
+        self.adjustSize()
+
+        self.setModal(True)
+
+    def read(self):
+        pass
+
+
+
 
 if __name__ == "__main__":
     main()
