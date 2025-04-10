@@ -15,10 +15,10 @@ import yaml
 
 
 drive_params = {
-    '5.25DD': {'tracks': 40, 'heads': 2},
-    '5.25HD': {'tracks': 80, 'heads': 2},
-    '3.5DD': {'tracks': 80, 'heads': 2},
-    '3.5HD': {'tracks': 80, 'heads': 2}
+    '5.25DD': {'tracks': 40, 'heads': 2, 'rpm': 300},
+    '5.25HD': {'tracks': 80, 'heads': 2, 'rpm': 360},
+    '3.5DD': {'tracks': 80, 'heads': 2, 'rpm': 300},
+    '3.5HD': {'tracks': 80, 'heads': 2, 'rpm': 300}
 }
 
 
@@ -129,16 +129,21 @@ class FloppyReader:
 
     def rpm(self, drive: str) -> float:
         """Get the RPM of the drive when there's a disk in there"""
-        def measure_rpm(gw: USB.Unit, drv: util.Drive):
+        def measure_rpm(gw: USB.Unit, drv: util.Drive, *args):
             gw.seek(0, 0)
             flux = gw.read_track(1)
             tpr = flux.index_list[-1] / flux.sample_freq
             return 60 / tpr
-        r = self.use_drive(measure_rpm, drive, True)
+        r = self.use_drive(measure_rpm, drive, motor=True)
         return r
 
 
-    def probe(self, drive: str) -> dict[str, tuple[float, int]]:
+    def get_formats_for_drive(self, drive: str) -> dict[str, codec.DiskDef]:
+        """Get a list of the formats supported for that drive"""
+        return {f: codec.get_diskdef(f) for f in self.config.formats.get(self.drives[drive]['type'], [])}
+        
+
+    def probe(self, drive: str, callback: Callable = None) -> dict[str, tuple[float, int]]:
         """Look at the drive and try to figure out what disk is in there
             We're going to do this by reading the first track and see if it works.
             We're not going to deal with the weird CP/M machines that had an FM
@@ -152,8 +157,12 @@ class FloppyReader:
         """
         if drive not in self.drives:
             raise KeyError("This drive is not configured")
+        
+        if callback is None: 
+            callback = lambda x: x
+        
         drive_params = self.drives[drive]
-        formats: dict[str, codec.DiskDef] = {f: codec.get_diskdef(f) for f in self.config.formats.get(self.drives[drive]['type'], [])}
+        formats = self.get_formats_for_drive(drive)
         if not formats:
             raise ValueError(f"No formats defined for drive type {self.drives[drive]['type']}")
     
@@ -166,21 +175,27 @@ class FloppyReader:
                 flux = gw.read_track(2)             
                 dat = fmt.decode_flux(0, h, flux)             
                 if dat.nr_missing() == dat.nsec:                    
-                    return (0, 0)
+                    return (0, 0, 0, 0)
                 total_expected += dat.nsec
                 total_missing += dat.nr_missing()                
                             
-            return (100 * (total_expected - total_missing) / total_expected, fmt.heads * fmt.cyls * dat.nsec)
+            #return (100 * (total_expected - total_missing) / total_expected, fmt.heads * fmt.cyls * dat.nsec)
+            return (100 * (total_expected - total_missing) / total_expected, fmt.heads, fmt.cyls, dat.nsec)
 
         res = {}
-        for format_name in formats:            
-            fmt: codec.DiskDef = formats[format_name] #codec.get_diskdef(format_name)            
+        current = 0
+        total = len(formats)
+        for format_name in formats:                        
+            fmt: codec.DiskDef = formats[format_name] #codec.get_diskdef(format_name)   
+            callback({'message': f"Probing {format_name}",
+                      'progress': current / total})         
+            current += 1
             if fmt.cyls > drive_params['tracks'] or fmt.heads > drive_params['heads']:
                 logging.warning(f"Skipping format {format_name} because it is incompatible with the drive")
                 continue
-            pct, size = self.use_drive(probe_track, drive, format_name, fmt)
+            pct, h, c, s = self.use_drive(probe_track, drive, format_name, fmt)
             if pct > 0:
-                res[format_name] = (pct, size)
+                res[format_name] = (pct, h, c, s)
         return res
     
 
