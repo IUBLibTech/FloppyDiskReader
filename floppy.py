@@ -187,8 +187,9 @@ class FloppyReader:
         total = len(formats)
         for format_name in formats:                        
             fmt: codec.DiskDef = formats[format_name] #codec.get_diskdef(format_name)   
-            callback({'message': f"Probing {format_name}",
-                      'progress': current / total})         
+            if callback({'message': f"Probing {format_name}",
+                         'progress': current / total}):                
+                return {}
             current += 1
             if fmt.cyls > drive_params['tracks'] or fmt.heads > drive_params['heads']:
                 logging.warning(f"Skipping format {format_name} because it is incompatible with the drive")
@@ -235,37 +236,44 @@ class FloppyReader:
                         flux = gw.read_track(max(2, fmt.default_revs))  
                         dat = fmt.decode_flux(cyl, head, flux) 
                         if dat.nr_missing() == 0:
-                            callback({'message': 'successfully read track',
-                                    'head': head,
-                                    'logical_cylinder': cyl,
-                                    'physical_cylinder': pcyl,
-                                    'flux': flux.summary_string(),
-                                    'dat': dat.summary_string(),
-                                    'progress': current / total})                                
+                            if callback({'success': True,
+                                         'message': 'successfully read track',
+                                         'head': head,
+                                         'logical_cylinder': cyl,
+                                         'physical_cylinder': pcyl,
+                                         'flux': flux.summary_string(),
+                                         'dat': dat.summary_string(),
+                                         'progress': current / total}):
+                                return False
                             break
                         retries -= 1                      
-                        callback({'message': 'failed read track, retrying',
-                                'head': head,
-                                'logical_cylinder': cyl,
-                                'physical_cylinder': pcyl,
-                                'flux': flux.summary_string(),
-                                'dat': dat.summary_string(),
-                                'progress': current / total})                                
+                        if callback({'success': False,
+                                     'message': 'failed read track, retrying',
+                                     'head': head,
+                                     'logical_cylinder': cyl,
+                                     'physical_cylinder': pcyl,
+                                     'flux': flux.summary_string(),
+                                     'dat': dat.summary_string(),
+                                     'progress': current / total}):
+                            return False
                     else:                        
                         bad = ''.join(['.' if dat.has_sec(i) else 'B' for i in range(dat.nsec)])
-                        callback({'message': f'failed read track, data may not be usable: [{bad}]',
-                                'head': head,
-                                'logical_cylinder': cyl,
-                                'physical_cylinder': pcyl,
-                                'flux': flux.summary_string(),
-                                'dat': dat.summary_string(),
-                                'progress': current / total})                                
+                        if callback({'success': False,
+                                     'message': f'failed read track, data may not be usable: [{bad}]',
+                                     'head': head,
+                                     'logical_cylinder': cyl,
+                                     'physical_cylinder': pcyl,
+                                     'flux': flux.summary_string(),
+                                     'dat': dat.summary_string(),
+                                     'progress': current / total}):
+                            return False
                         
                     img.emit_track(cyl, head, dat)
 
             with open(filename, "wb") as f:
                 f.write(img.get_image())
 
+            return True
                 
         return self.use_drive(reader, drive)
   

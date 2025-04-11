@@ -77,6 +77,7 @@ class MainWindow(QWidget):
         probe = QPushButton("Probe")
         def do_probe():
             probewindow = ProbeWindow(self.pdisk.currentData())
+            #probewindow.setParent(self)
             probewindow.show()
             probewindow.probe()
             probewindow.exec()
@@ -111,12 +112,13 @@ class MainWindow(QWidget):
 
         read = QPushButton("Start")
         def do_read():
-            probewindow = ProcessWindow(self.pdisk.currentData(), 
+            readwindow = ProcessWindow(self.pdisk.currentData(), 
                                         self.format.currentText(), self.format.currentData(),
                                         self.tracks.value(), self.heads.value())
-            probewindow.show()
-            probewindow.read()
-            probewindow.exec()
+            #readwindow.setParent(self)
+            readwindow.show()
+            readwindow.read()
+            readwindow.exec()
         read.pressed.connect(do_read)
         layout.addWidget(read, 3, 0)
 
@@ -129,7 +131,7 @@ class MainWindow(QWidget):
                 rpm = floppy.rpm(self.pdisk.currentData())
                 nom_rpm = floppy.drives[self.pdisk.currentData()]['rpm']
                 rate = 100 * (rpm / nom_rpm)
-                dlg.setText(f"Drive Speed:\nMeasured {rpm:0.2f} RPM\nNominal {nom_rpm} RPM\nAccuracy {rate:0.2f}%")                
+                dlg.setText(f"Drive Speed:\nMeasured {rpm:0.2f} RPM\nNominal {nom_rpm} RPM\nDrift {100 - rate:0.2f}%")                
             except Exception as e:                
                 dlg.setText(f"Error: {e}")
                 dlg.setIcon(QMessageBox.Icon.Critical)
@@ -180,25 +182,29 @@ class ProbeWindow(QDialog):
     def probe(self):
         # turn off the buttons
         self.ok.setDisabled(True)
-        self.cancel.setDisabled(True)
+        self.cancel_probe = False
+        def do_cancel_probe():
+            self.cancel_probe = True
+        self.cancel.pressed.connect(do_cancel_probe)
         self.format.setDisabled(True)
         QGuiApplication.processEvents()
+        
         def callback(x):
             self.format.setItemText(0, f"{x['message']} ({100*x['progress']:0.2f}%)")
             QGuiApplication.processEvents()
+            return self.cancel_probe
+
         items = floppy.probe(self.drive, callback=callback)
-        self.cancel.setDisabled(False)
+        if self.cancel_probe:
+            return
+        
         if not items:
             self.format.setItemText(0, "No Formats Found")
         else:
             self.format.clear()
-
             # sort these by largest percentage and then largest size.
             for t, d in  [(f"{x}: {items[x][0]:0.1f}% ({items[x][1]}h, {items[x][2]}t, {items[x][3]}s)", x) for x in sorted(items.keys(), key=lambda x: items[x], reverse=True)]:
                 self.format.addItem(t, d)
-            
-
-            #self.format.addItems(items.keys())
             self.ok.setDisabled(False)
             self.format.setDisabled(False)
             
@@ -216,33 +222,33 @@ class ProcessWindow(QDialog):
         self.format = format
         self.tracks = tracks
         self.heads = heads
+        self.image_file: Path = None
+        self.log_file: Path = None
+        self.cancel_read = False
         logging.info(f"{drive}, {format_name}, {format}, {tracks}, {heads}")
 
         layout = QGridLayout()
-        self.results = QTableWidget(rowCount=160,
-                                    columnCount=5)
-        self.results.setHorizontalHeaderLabels(['Head', 'Track', 'Message', 'Dat', 'Flux'])     
-        self.results.setColumnWidth(0, 2)
-        self.results.setColumnWidth(1, 2)
-        self.results.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.results = QPlainTextEdit()
+        self.results.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self.results.setWordWrapMode(QTextOption.WrapMode.NoWrap)
+        courier = QFont("courier", 10)
+        metrics = QFontMetrics(courier)
+        self.results.setFont(courier)
+        self.results.setReadOnly(True)
+        self.results.setLineWidth(86)
+        self.results.setFixedWidth(86 * metrics.averageCharWidth())
 
+        self.results.adjustSize()
         layout.addWidget(self.results, 0, 0, 1, -1)
 
-        """
-        {'message': 'successfully read track',
-                                    'head': head,
-                                    'logical_cylinder': cyl,
-                                    'physical_cylinder': pcyl,
-                                    'flux': flux.summary_string(),
-                                    'dat': dat.summary_string(),
-                                    'progress': current / total})    
-        """
-        self.progress = QProgressBar(maximum=1)
+        self.progress = QProgressBar(maximum=100, value=0, textVisible=True)
         layout.addWidget(self.progress, 1, 0, 1, 3)
 
-        close = QPushButton("Close")
-        close.pressed.connect(self.close)
-        layout.addWidget(close, 1, 3)
+        self.closebtn = QPushButton("Cancel")
+        def do_cancel_read():
+            self.cancel_read = True    
+        self.closebtn.pressed.connect(do_cancel_read)
+        layout.addWidget(self.closebtn, 1, 3)
 
         self.setLayout(layout)
         self.adjustSize()
@@ -250,9 +256,54 @@ class ProcessWindow(QDialog):
         self.setModal(True)
 
     def read(self):
-        pass
+        ext = floppy.get_extension_for_format(self.format_name)
+        
+        def file_selected(filename):
+            self.image_file = filename
+        
+        fdlg = QFileDialog(caption="Save Disk Image As...",
+                           defaultSuffix=ext,                           
+                           filter=f"Disk Image *{ext}(*{ext})",
+                           acceptMode=QFileDialog.AcceptMode.AcceptSave,                           
+                           )
+        fdlg.fileSelected.connect(file_selected)
+        fdlg.exec()        
+        QGuiApplication.processEvents()
+        if self.image_file:
+            self.image_file = Path(self.image_file)
+            self.log_file = self.image_file.parent / ((self.image_file.name) + ".log")            
+            self.results.appendHtml(f"<pre>Writing Disk image to {self.image_file}</pre>")
+            self.results.appendHtml(f"<pre>Writing Disk log to {self.log_file}</pre>")
+            self.has_errors = False
+            with open(self.log_file, "w") as f:
+                def do_log(message):
+                    msg = f"{message['logical_cylinder']}.{message['head']}: {message['message']}\n  {message['dat']}\n  {message['flux']}\n"
+                    self.results.appendHtml(f"<pre>{msg}</pre>")
+                    f.write(msg)
+                    cursor = self.results.textCursor()
+                    cursor.movePosition(QTextCursor.MoveOperation.End)
+                    cursor.movePosition(QTextCursor.MoveOperation.StartOfLine)
+                    self.results.setTextCursor(cursor)
 
 
+                def track_callback(message):
+                    self.progress.setValue(message['progress'] * 100)
+                    if not message['success']:
+                        self.has_errors = True
+                    do_log(message)
+                    QGuiApplication.processEvents()
+                    return self.cancel_read
+            
+                floppy.read_image(self.drive, self.format_name, self.image_file, 0, self.tracks, 0, self.heads, callback=track_callback)
+
+                if self.has_errors:
+                    self.results.appendHtml(f"<pre>The disk had read errors, review the log</pre>")
+                else:
+                    self.results.appendHtml(f"<pre>The disk was read successfully</pre>")
+
+
+            self.closebtn.setText("Close")
+            self.closebtn.pressed.connect(self.close)
 
 
 if __name__ == "__main__":
