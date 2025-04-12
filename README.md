@@ -92,17 +92,21 @@ There are some things that are either very hard to find or are custom to this pr
 
   Creative Commons 4.0 Attribution - Noncommercial - Share Alike
 
+  The file is `5.25-bay-cover-vented.3mf`
+
 * USB Back Panel (1x)
 
   Place to mount the USB C extension table on the back of the enclosure
         
   Designed in house
 
-* Greaseweazle mount (1x)
+* Greaseweazle mount tray (1x)
   
   Place to mount the Greaseweazle, also serves as the drive blank for the 3rd unused bay
   
-  Designed in house
+  Designed in house.
+
+  This tray is `Greaseweazle_Tray-Tray.3mf`.   
 
 
 ### Disk Drives
@@ -113,6 +117,40 @@ The above assumes we have floppy drives sitting around.  However, if we want to 
 
 
 ## Assembly
+
+### Disk Drives
+
+Mount the disk drives in the enclosure in a way that is most convenient.  If you have 
+two disk drives you will likely want to put drive A above drive B.  The drive letter is 
+assigned based on where it is connected to the cable.  The single connector after the 
+twist on the data cable will be drive A and the one between the twist and the 
+connector at the end of the cable will be drive B. 
+
+It may make sense to install the data cable on the drives temporarily to help determine
+the best organization for the drives.
+
+### Greaseweazle
+
+Two jumpers will need to be changed to configure the Greaseweazle:
+* USB 5V ENABLE - this will allow the device to be powered by the enclosure
+* WRITE-ENABLE - this will block writes to the floppy drives
+
+In both of these cases the jumpers need to be removed.  Optionally, instead of removing
+the jumpers they can be placed at a 90 degree angle and connected to only one pin.
+
+The greaseweazle will be mounted to the 3d-printed tray using whatever screws from the PC
+kit that are convenient.  The tray itself will be mounted into the enclosure the same way
+the drives were.
+
+### Drive Blanks
+Any left over drive bays can have drive blanks mounted.
+
+### USB Bulkhead
+
+*TODO*
+
+## Cabling
+
 
 
 
