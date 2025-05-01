@@ -1,0 +1,15 @@
+#!/bin/bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+if [ ! -e $SCRIPT_DIR/.venv ]; then
+    echo "The Virtual environment is missing.  Install with:"
+    echo "  * python -m venv .venv"
+    echo "  * source .venv/bin/activate"
+    echo "  * pip install -r requirements.txt"
+    exit 1
+fi
+
+source $SCRIPT_DIR/.venv/bin/activate
+
+$SCRIPT_DIR/FloppyDiskReader.py "$@"

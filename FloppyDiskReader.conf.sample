@@ -9,26 +9,23 @@ greaseweazle:
     a: 3.5HD
     b: 5.25HD
 
+#
+# Supported formats can be listed by activing the python environment and
+# running:   gw read -h
+
 formats:
   5.25DD: &525DD
     - commodore.1541
-    - commodore.1571
-    - ibm.160
-    - ibm.180
-    - ibm.320
     - ibm.360
   5.25HD:
-    - *525DD     
+    - *525DD  # Everything that is supported by 5.25DD
     - ibm.1200
   3.5DD: &35DD
     - amiga.amigados
-    - commodore.1581
     - ibm.720
-    - ibm.800
-    - mac.400
     - mac.800
   3.5HD:
-    - *35DD
+    - *35DD # Everything that is supported by 3.5DD
     - ibm.1440
-    - ibm.1680
+
   

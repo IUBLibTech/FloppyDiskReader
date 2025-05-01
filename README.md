@@ -108,6 +108,8 @@ There are some things that are either very hard to find or are custom to this pr
 
   This tray is `Greaseweazle_Tray-Tray.3mf`.   
 
+  There is also a longer variant if needed.
+
 
 ### Disk Drives
 

@@ -1,6 +1,5 @@
 #!/bin/env python3
 import argparse
-from dataclasses import dataclass
 import logging
 from pathlib import Path
 import signal
